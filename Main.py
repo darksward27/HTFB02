@@ -37,7 +37,7 @@ class Blockchain:
         return Block(0, "0", time.time(), "Genesis Block", calculate_hash(0, "0", time.time(), "Genesis Block"))
 
     def __init__(self):
-        self.chain = [self.create_genesis_block()]
+        self.chain = [self.create_genesis_block]
         self.nodes = {}
         self.pool = queue.Queue()
         self.lock = threading.Lock()
