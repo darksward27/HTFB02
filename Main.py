@@ -7,6 +7,26 @@ from urllib.parse import urlparse
 import time
 import queue
 import seal
+
+class User:
+    def __init__(self, username, password, age, income, credit_score, num_open_credit_accounts):
+        self.username = username
+        self.password = password
+        self.age = age
+        self.income = income
+        self.credit_score = credit_score
+        self.num_open_credit_accounts = num_open_credit_accounts
+
+    def to_dict(self):
+        return {
+            "username": self.username,
+            "password": self.password,
+            "age": self.age,
+            "income": self.income,
+            "credit_score": self.credit_score,
+            "num_open_credit_accounts": self.num_open_credit_accounts
+        }
+
 class LeaseContract:
     def __init__(self, lease_duration, lessee_address):
         self.lease_duration = lease_duration
@@ -56,6 +76,7 @@ class Blockchain:
         self.nodes = {}
         self.pool = queue.Queue()
         self.lock = threading.Lock()
+        self.users = {}
     
     def execute_block_contracts(self, block):
         for contract in block.contracts:
@@ -110,7 +131,28 @@ class Blockchain:
             return  obj.timestamp
         while(True):
             self.pool.sort(key=get_timestamp)
-            
+    def create_user(self, username, password, age, income, credit_score, num_open_credit_accounts):
+        if username in self.users:
+            print("Username already exists. Please choose a different username.")
+            return False
+        else:
+            user = User(username, password, age, income, credit_score, num_open_credit_accounts)
+            self.users[username] = user
+            print("User created successfully.")
+            return True
+
+    def login(self, username, password):
+        if username in self.users:
+            user = self.users[username]
+            if user.password == password:
+                print("Login successful!")
+                return True
+            else:
+                print("Incorrect password. Please try again.")
+                return False
+        else:
+            print("User does not exist. Please sign up.")
+            return False           
 
 blockchain = Blockchain()
 
@@ -164,16 +206,15 @@ def start_server():
             client_handler.start()
 
 def start_miner():
-    data = input("Enter your transaction data: ")
-    lease_duration = int(input("Enter lease duration (in seconds): "))
-    lessee_address = input("Enter lessee address: ")
-    
-    contracts = []
-    if lease_duration and lessee_address:
-        contracts.append(LeaseContract(lease_duration, lessee_address))
+    username = input("Enter your username: ")
+    password = input("Enter your password: ")
+    age = int(input("Enter your age: "))
+    income = float(input("Enter your income: "))
+    credit_score = int(input("Enter your credit score: "))
+    num_open_credit_accounts = int(input("Enter number of open credit accounts: "))
 
-    blockchain.add_block(data, contracts=contracts)
-    blockchain.sync_nodes()
+    # Create user
+    blockchain.create_user(username, password, age, income, credit_score, num_open_credit_accounts)
 
 
 
