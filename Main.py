@@ -7,7 +7,6 @@ from urllib.parse import urlparse
 import time
 import queue
 import seal
-
 class LeaseContract:
     def __init__(self, lease_duration, lessee_address):
         self.lease_duration = lease_duration
@@ -17,11 +16,11 @@ class LeaseContract:
     def is_lease_active(self):
         return time.time() < self.start_time + self.lease_duration
 
-    def execute(self, data):
+    def get_lease_status(self):
         if self.is_lease_active():
-            print(f"Data leased to {self.lessee_address} for {self.lease_duration} seconds.")
+            return "Active"
         else:
-            print("Lease expired. Data access denied.")
+            return "Expired"
 
 class Block:
     def __init__(self, index, previous_hash, timestamp, data, hash,contracts=None):
@@ -47,13 +46,13 @@ def create_new_block(previous_block, data):
     timestamp = time.time()
     hash_value = calculate_hash(index, previous_block.hash, timestamp, data)
     return Block(index, previous_block.hash, timestamp, data, hash_value)
+def create_genesis_block():
+    return Block(0, "0", time.time(), "Genesis Block", calculate_hash(0, "0", time.time(), "Genesis Block"))
 
 class Blockchain:
-    def create_genesis_block():
-        return Block(0, "0", time.time(), "Genesis Block", calculate_hash(0, "0", time.time(), "Genesis Block"))
 
     def __init__(self):
-        self.chain = [self.create_genesis_block]
+        self.chain = [create_genesis_block()]
         self.nodes = {}
         self.pool = queue.Queue()
         self.lock = threading.Lock()
@@ -166,9 +165,17 @@ def start_server():
 
 def start_miner():
     data = input("Enter your transaction data: ")
-    contract_script = input("Enter contract script (leave blank for no contract): ")
-    blockchain.add_block(data, contracts=[LeaseContract(contract_script)])
+    lease_duration = int(input("Enter lease duration (in seconds): "))
+    lessee_address = input("Enter lessee address: ")
+    
+    contracts = []
+    if lease_duration and lessee_address:
+        contracts.append(LeaseContract(lease_duration, lessee_address))
+
+    blockchain.add_block(data, contracts=contracts)
     blockchain.sync_nodes()
+
+
 
 def start_node():
     address = input("Enter node address to connect (e.g., localhost:5001): ")
@@ -177,27 +184,27 @@ def start_node():
 
 def display_blocks():
     for block in blockchain.chain:
-        print(block.index)
-        print(block.data)
-        print(block.timestamp)
-        print(block.hash)
-        print(block.previous_hash)
+        print("Index:", block.index)
+        print("Data:", block.data)
+        print("Timestamp:", block.timestamp)
+        print("Hash:", block.hash)
+        print("Previous Hash:", block.previous_hash)
+        for contract in block.contracts:
+            if isinstance(contract, LeaseContract):
+                print("Lease Contract Status:", contract.get_lease_status())
         print("----------------------------------------------")
+
 if __name__ == '__main__':
     server_thread = threading.Thread(target=start_server)
     server_thread.start()
-    while(True):
+    while True:
         print("--------------------------------")
-        print("1.Transaction")
-        print("2.Add Node")
-        print("3.Display blocks")
-        option = int(input("Enter the choice:"))
+        print("1. Transaction")
+        print("2. Display blocks")
+        option = int(input("Enter your choice:"))
         if option == 1:
             start_miner()
         elif option == 2:
-            start_node()
-        elif option == 3:
             display_blocks()
         else:
-            print("Wrong Option Selected retry!!")
-
+            print("Wrong Option Selected, retry!!")
