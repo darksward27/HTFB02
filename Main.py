@@ -6,15 +6,31 @@ import json
 from urllib.parse import urlparse
 import time
 import queue
+import seal
 
+class LeaseContract:
+    def __init__(self, lease_duration, lessee_address):
+        self.lease_duration = lease_duration
+        self.lessee_address = lessee_address
+        self.start_time = time.time()
+
+    def is_lease_active(self):
+        return time.time() < self.start_time + self.lease_duration
+
+    def execute(self, data):
+        if self.is_lease_active():
+            print(f"Data leased to {self.lessee_address} for {self.lease_duration} seconds.")
+        else:
+            print("Lease expired. Data access denied.")
 
 class Block:
-    def __init__(self, index, previous_hash, timestamp, data, hash):
+    def __init__(self, index, previous_hash, timestamp, data, hash,contracts=None):
         self.index = index
         self.previous_hash = previous_hash
         self.timestamp = timestamp
         self.data = data
         self.hash = hash
+        self.contracts = contracts if contracts else []
 
 def calculate_hash(index, previous_hash, timestamp, data):
     value = str(index) + str(previous_hash) + str(timestamp) + str(data)
@@ -41,16 +57,25 @@ class Blockchain:
         self.nodes = {}
         self.pool = queue.Queue()
         self.lock = threading.Lock()
+    
+    def execute_block_contracts(self, block):
+        for contract in block.contracts:
+            contract.execute(block.data)
 
     def get_last_block(self):
         return self.chain[-1]
+    
+    def validate_transaction(self,Transaction):
+        return True
 
     def validate_chain(self, remote_chain):
         return True
 
-    def add_block(self, data):
+    def add_block(self, data, contracts=None):
         with self.lock:
             new_block = create_new_block(self.get_last_block(), data)
+            if contracts:
+                new_block.contracts.extend(contracts)
             self.chain.append(new_block)
             return new_block
 
@@ -98,6 +123,18 @@ def handle_client(conn, addr):
             if not data:
                 break
             message = json.loads(data)
+
+            if message['type'] == 'transaction':
+                transaction_data = message['data']
+                contract_script = message.get('contract')
+                
+                if validate_transaction(transaction_data):
+                    contracts = []
+                    if contract_script:
+                        contracts.append(LeaseContract(contract_script))
+                    blockchain.add_block(transaction_data, contracts=contracts)
+                    blockchain.sync_nodes()
+
             if message['type'] == 'sync':
                 remote_chain = message['chain']
                 if len(remote_chain) > len(blockchain.chain) and blockchain.validate_chain(remote_chain):
@@ -129,7 +166,8 @@ def start_server():
 
 def start_miner():
     data = input("Enter your transaction data: ")
-    blockchain.add_block(data)
+    contract_script = input("Enter contract script (leave blank for no contract): ")
+    blockchain.add_block(data, contracts=[LeaseContract(contract_script)])
     blockchain.sync_nodes()
 
 def start_node():
