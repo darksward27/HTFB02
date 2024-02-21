@@ -16,7 +16,8 @@ class User:
         self.income = income
         self.credit_score = credit_score
         self.num_open_credit_accounts = num_open_credit_accounts
-
+        self.reward_points = 0
+    
     def to_dict(self):
         return {
             "username": self.username,
@@ -24,8 +25,20 @@ class User:
             "age": self.age,
             "income": self.income,
             "credit_score": self.credit_score,
-            "num_open_credit_accounts": self.num_open_credit_accounts
+            "num_open_credit_accounts": self.num_open_credit_accounts,
+            "reward_points": self.reward_points
         }
+    
+    def earn_reward_points(self, points):
+        self.reward_points += points
+    
+    def redeem_reward_points(self, points):
+        if self.reward_points >= points:
+            self.reward_points -= points
+            print(f"{points} reward points redeemed successfully.")
+        else:
+            print("Insufficient reward points.")
+
 
 class LeaseContract:
     def __init__(self, lease_duration, lessee_address):
