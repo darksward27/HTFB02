@@ -8,6 +8,8 @@ import time
 import queue
 import seal
 import csv
+import numpy as np
+import seal
 
 class User:
     def __init__(self, username, password, age, income, credit_score, num_open_credit_accounts):
@@ -206,20 +208,43 @@ class Blockchain:
                 print("Insufficient balance.")
                 return False
     
-    def output_user_data_to_csv(self):
-        with open('user_data.csv', mode='w', newline='') as file:
-            fieldnames = ['Age', 'Income', 'Credit Score', 'Num Open Credit Accounts', 'Balance']
-            writer = csv.DictWriter(file, fieldnames=fieldnames)
 
-            writer.writeheader()
+    def output_user_data_to_csv(self, public_key):
+        def encrypt_and_write_user_data():
+            parms = seal.EncryptionParameters(seal.scheme_type.bfv)
+            parms.set_poly_modulus_degree(4096)
+            parms.set_coeff_modulus(seal.CoeffModulus.Create(4096, [60, 40])) 
+            parms.set_plain_modulus(seal.PlainModulus.Batching(4096, 20))
+            context = seal.SEALContext(parms)
+
+            keygen = seal.KeyGenerator(context)
+            public_key = keygen.create_public_key()
+            secret_key = keygen.secret_key()
+
+
+            encryptor = seal.Encryptor(context, public_key)
+            decryptor = seal.Decryptor(context, secret_key)
+
+            user_data = []
             for user in self.users.values():
-                writer.writerow({
-                    'Age': user.age,
-                    'Income': user.income,
-                    'Credit Score': user.credit_score,
-                    'Num Open Credit Accounts': user.num_open_credit_accounts,
-                    'Balance': user.balance
-                })
+                user_data.append([user.age, user.income, user.credit_score, user.num_open_credit_accounts, user.balance])
+
+            encrypted_user_data = []
+            for data_row in user_data:
+                encrypted_data_row = [encryptor.encrypt(seal.Plaintext(str(x))) for x in data_row]
+                encrypted_user_data.append(encrypted_data_row)
+
+            csv_filename = 'encrypted_user_data.csv'
+            with open(csv_filename, mode='w', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow(['Encrypted Age', 'Encrypted Income', 'Encrypted Credit Score', 'Encrypted Num Open Credit Accounts', 'Encrypted Balance'])
+                for encrypted_row in encrypted_user_data:
+                    writer.writerow(encrypted_row)
+
+            print("Encrypted user data written to:", csv_filename)
+        
+        t = threading.Thread(target=encrypt_and_write_user_data)
+        t.start()
 
     def lease_data(self, lessor_username, lessee_username, data, lease_duration):
         if lessor_username not in self.users:
