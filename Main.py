@@ -268,7 +268,17 @@ class Blockchain:
                 return True
             else:
                 print("Insufficient balance.")
-                return False     
+                return False   
+    def list_users(self):
+        print("List of users:")
+        for username, user in self.users.items():
+            print(f"Username: {username}")
+            print(f"Age: {user.age}")
+            print(f"Income: {user.income}")
+            print(f"Credit Score: {user.credit_score}")
+            print(f"Number of Open Credit Accounts: {user.num_open_credit_accounts}")
+            print(f"Balance: {user.balance}")
+            print("-----------------------------")  
 
 blockchain = Blockchain()
 
@@ -345,53 +355,34 @@ def display_blocks():
         print("----------------------------------------------")
 
 if __name__ == '__main__':
+    blockchain = Blockchain()
     server_thread = threading.Thread(target=start_server)
     server_thread.start()
     while True:
         print("--------------------------------")
         print("1. Transaction")
         print("2. Display blocks")
-        print("3. Add User")
-        print("4. Transfer Tokens")
-        print("5. Lease CSV Data")
-        print("6. Delete User")
-        print("7. Export User Data to CSV")
-        print("8. Exit")
+        print("3. List users")
+        print("4. Encrypt and write user data to CSV")
+        print("5. Lease data")
+        print("6. Exit")
         option = int(input("Enter your choice:"))
         if option == 1:
             start_miner()
         elif option == 2:
             display_blocks()
         elif option == 3:
-            username = input("Enter username: ")
-            password = input("Enter password: ")
-            age = int(input("Enter age: "))
-            income = float(input("Enter income: "))
-            credit_score = int(input("Enter credit score: "))
-            num_open_credit_accounts = int(input("Enter number of open credit accounts: "))
-            blockchain.add_user(username, password, age, income, credit_score, num_open_credit_accounts)
+            blockchain.list_users()
         elif option == 4:
-            sender_username = input("Enter sender username: ")
-            receiver_username = input("Enter receiver username: ")
-            amount = float(input("Enter amount to transfer: "))
-            blockchain.transfer_tokens(sender_username, receiver_username, amount)
+            blockchain.encrypt_and_write_user_data_to_csv()
         elif option == 5:
-            lessor_username = input("Enter lessor username: ")
-            lessee_username = input("Enter lessee username: ")
-            csv_file_path = input("Enter CSV file path to lease: ")
-            lease_duration = int(input("Enter lease duration (in seconds): "))
-            blockchain.lease_data(lessor_username, lessee_username, csv_file_path, lease_duration)
+            # Code for leasing data
+            pass
         elif option == 6:
-            username = input("Enter username to delete: ")
-            blockchain.delete_user(username)
-        elif option == 7:
-            blockchain.output_user_data_to_csv()
-        elif option == 8:
+            print("Exiting...")
             break
         else:
             print("Wrong Option Selected, retry!!")
-
-
 
 
 
