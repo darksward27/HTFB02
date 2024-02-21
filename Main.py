@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 import time
 import queue
 import seal
+import csv
 
 class User:
     def __init__(self, username, password, age, income, credit_score, num_open_credit_accounts):
@@ -16,8 +17,8 @@ class User:
         self.income = income
         self.credit_score = credit_score
         self.num_open_credit_accounts = num_open_credit_accounts
-        self.reward_points = 0
-    
+        self.balance = 0
+
     def to_dict(self):
         return {
             "username": self.username,
@@ -26,7 +27,7 @@ class User:
             "income": self.income,
             "credit_score": self.credit_score,
             "num_open_credit_accounts": self.num_open_credit_accounts,
-            "reward_points": self.reward_points
+            "balance": self.balance
         }
     
     def earn_reward_points(self, points):
@@ -38,7 +39,6 @@ class User:
             print(f"{points} reward points redeemed successfully.")
         else:
             print("Insufficient reward points.")
-
 
 class LeaseContract:
     def __init__(self, lease_duration, lessee_address):
@@ -94,6 +94,17 @@ class Blockchain:
     def execute_block_contracts(self, block):
         for contract in block.contracts:
             contract.execute(block.data)
+    
+    def delete_user(self, username):
+        if username in self.users:
+            del self.users[username]
+            print(f"User '{username}' deleted successfully.")
+            # Remove all blocks associated with the user
+            self.chain = [block for block in self.chain if not any(contract.lessee_address == username for contract in block.contracts)]
+            return True
+        else:
+            print("User does not exist.")
+            return False
 
     def get_last_block(self):
         return self.chain[-1]
@@ -165,7 +176,74 @@ class Blockchain:
                 return False
         else:
             print("User does not exist. Please sign up.")
-            return False           
+            return False 
+    def add_user(self, username, password, age, income, credit_score, num_open_credit_accounts):
+        if username in self.users:
+            print("Username already exists. Please choose a different username.")
+            return False
+        else:
+            user = User(username, password, age, income, credit_score, num_open_credit_accounts)
+            self.users[username] = user
+            print("User created successfully.")
+            return True
+
+    def transfer_tokens(self, sender_username, receiver_username, amount):
+        if sender_username not in self.users:
+            print("Sender user does not exist.")
+            return False
+        elif receiver_username not in self.users:
+            print("Receiver user does not exist.")
+            return False
+        else:
+            sender = self.users[sender_username]
+            receiver = self.users[receiver_username]
+            if sender.balance >= amount:
+                sender.balance -= amount
+                receiver.balance += amount
+                print(f"{amount} tokens transferred from {sender_username} to {receiver_username}.")
+                return True
+            else:
+                print("Insufficient balance.")
+                return False
+    
+    def output_user_data_to_csv(self):
+        with open('user_data.csv', mode='w', newline='') as file:
+            fieldnames = ['Age', 'Income', 'Credit Score', 'Num Open Credit Accounts', 'Balance']
+            writer = csv.DictWriter(file, fieldnames=fieldnames)
+
+            writer.writeheader()
+            for user in self.users.values():
+                writer.writerow({
+                    'Age': user.age,
+                    'Income': user.income,
+                    'Credit Score': user.credit_score,
+                    'Num Open Credit Accounts': user.num_open_credit_accounts,
+                    'Balance': user.balance
+                })
+
+    def lease_data(self, lessor_username, lessee_username, data, lease_duration):
+        if lessor_username not in self.users:
+            print("Lessor user does not exist.")
+            return False
+        elif lessee_username not in self.users:
+            print("Lessee user does not exist.")
+            return False
+        else:
+            lessor = self.users[lessor_username]
+            lessee = self.users[lessee_username]
+            if lessee.balance >= lease_duration:  # Assuming the cost is based on lease duration
+                lessee.balance -= lease_duration
+                lessor.balance += lease_duration
+                lease_contract = LeaseContract(lease_duration, lessee)
+                new_block = create_new_block(self.get_last_block(), data)
+                new_block.contracts.append(lease_contract)
+                self.chain.append(new_block)
+                print("Data leased successfully.")
+                self.output_user_data_to_csv()  # Export user data to CSV after leasing data
+                return True
+            else:
+                print("Insufficient balance.")
+                return False     
 
 blockchain = Blockchain()
 
@@ -182,13 +260,6 @@ def handle_client(conn, addr):
                 transaction_data = message['data']
                 contract_script = message.get('contract')
                 
-                if validate_transaction(transaction_data):
-                    contracts = []
-                    if contract_script:
-                        contracts.append(LeaseContract(contract_script))
-                    blockchain.add_block(transaction_data, contracts=contracts)
-                    blockchain.sync_nodes()
-
             if message['type'] == 'sync':
                 remote_chain = message['chain']
                 if len(remote_chain) > len(blockchain.chain) and blockchain.validate_chain(remote_chain):
@@ -255,10 +326,47 @@ if __name__ == '__main__':
         print("--------------------------------")
         print("1. Transaction")
         print("2. Display blocks")
+        print("3. Add User")
+        print("4. Transfer Tokens")
+        print("5. Lease CSV Data")
+        print("6. Delete User")
+        print("7. Export User Data to CSV")
+        print("8. Exit")
         option = int(input("Enter your choice:"))
         if option == 1:
             start_miner()
         elif option == 2:
             display_blocks()
+        elif option == 3:
+            username = input("Enter username: ")
+            password = input("Enter password: ")
+            age = int(input("Enter age: "))
+            income = float(input("Enter income: "))
+            credit_score = int(input("Enter credit score: "))
+            num_open_credit_accounts = int(input("Enter number of open credit accounts: "))
+            blockchain.add_user(username, password, age, income, credit_score, num_open_credit_accounts)
+        elif option == 4:
+            sender_username = input("Enter sender username: ")
+            receiver_username = input("Enter receiver username: ")
+            amount = float(input("Enter amount to transfer: "))
+            blockchain.transfer_tokens(sender_username, receiver_username, amount)
+        elif option == 5:
+            lessor_username = input("Enter lessor username: ")
+            lessee_username = input("Enter lessee username: ")
+            csv_file_path = input("Enter CSV file path to lease: ")
+            lease_duration = int(input("Enter lease duration (in seconds): "))
+            blockchain.lease_data(lessor_username, lessee_username, csv_file_path, lease_duration)
+        elif option == 6:
+            username = input("Enter username to delete: ")
+            blockchain.delete_user(username)
+        elif option == 7:
+            blockchain.output_user_data_to_csv()
+        elif option == 8:
+            break
         else:
             print("Wrong Option Selected, retry!!")
+
+
+
+
+
