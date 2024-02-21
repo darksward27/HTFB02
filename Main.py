@@ -227,7 +227,7 @@ class Blockchain:
 
             user_data = []
             for user in self.users.values():
-                user_data.append([user.age, user.income, user.credit_score, user.num_open_credit_accounts, user.balance])
+                user_data.append([int(user.age), int(user.income), int(user.credit_score), int(user.num_open_credit_accounts), int(user.balance)])
 
             encrypted_user_data = []
             for data_row in user_data:
